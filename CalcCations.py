@@ -31,20 +31,16 @@ class ProbeData(object):
 
     # Do I want this to be unchangeable?
     oxide_info = pd.read_csv('oxides.csv', index_col=0)
+    
+    # Extract useful information from dataframe
+    MR = oxide_info.loc['MR'].astype('float')
+    cat_num = oxide_info.loc['cations'].astype('float')
+    ox_num = oxide_info.loc['oxygens'].astype('float')
+    cat_str = oxide_info.loc['cat_str'].astype('str')
 
     def __init__(self, data: pd.DataFrame, oxides: List[str]):
-
         self.data = data
         self.oxides = oxides
-
-        # Extract useful info from oxides_info using oxides [THIS IS PROBABLY BAD PYTHON. HOW DO I MAKE IT BETTER?]
-        self.MR = self.oxide_info.loc['MR'][self.oxides].astype('float')
-        self.cat_num = self.oxide_info.loc['cations'][self.oxides].astype(
-            'float')
-        self.ox_num = self.oxide_info.loc['oxygens'][self.oxides].astype(
-            'float')
-        self.cat_str = self.oxide_info.loc['cat_str'][self.oxides].astype(
-            'str')
 
 
 class CalcCationsMin(ProbeData):
@@ -104,6 +100,7 @@ class CalcCationsMin(ProbeData):
 
         cations = self.calc_anions(afu).mul(self.cat_num, axis=1)
         cations = cations.div(self.ox_num, axis=1)
+        cations = cations[self.oxides]  # remove non-relavent oxide headers
 
         if change_head:
             return self.change_headers_cfu(cations)
@@ -136,7 +133,8 @@ class CalcCationsMin(ProbeData):
         cat_tot = self.calc_cat_tot(afu)
         upper, lower = cfu + cfu*wiggle, cfu - cfu*wiggle
         
-        cat_tot["cat_good"] = [True if (x <= upper) & (x >= lower) else False for x in cat_tot["cat_tot"]]
+        cat_tot["cat_good"] = [True if (x <= upper) & (x >= lower) else False
+                               for x in cat_tot["cat_tot"]]
         return cat_tot
 
 
@@ -163,18 +161,47 @@ class CalcCationsFe3(CalcCationsMin):
         if "Fe2O3" in self.oxides:
             raise Exception(
                 "Dataset already contains Fe2O3. Try calc_cations instead.")
+        
+        # Calculate cation and oxygen proportions 
+        mol_prop = self.cat_num.mul(self.calc_mol_prop())
+        mol_prop_tot = mol_prop.sum(axis=1, skipna=True)
+        mol_fact = cfu / mol_prop_tot
+        
+        ox_no = mol_prop.mul(self.ox_num, axis=1)
+        ox_tot = ox_no.sum(axis=1, skipna=True)
+        ox_fact = afu / ox_tot
 
-        mol_fact = self.calc_cat_frac(afu)
-        ox_fact = self.calc_cat_frac(cfu)
+        F1 = self.calc_mol_prop().mul(mol_fact, axis=0)
+        F2 = self.calc_mol_prop().mul(ox_fact, axis=0)
+        
+        # Calculate Droop Components S, T and X THESE ARE NOT GIVING RIGHT VALUES
+        S = F1.sum(axis=1, skipna=True)
+        T = F2.sum(axis=1, skipna=True)
+        OxNum6 = F2.mul(self.ox_num/self.cat_num, axis=1)
+        X = OxNum6.sum(axis=1, skipna=True)
+        # Calculate N
+        
+        # check S/T and X/N are equal
+        
+        # Calculate new FeO and Fe2O3 contents
+        
+        
+        
+        # Fe3, Fe2 = np.zeros(len(S)), np.zeros(len(S))
+        # for idx in range(len(S)):
+        #     if 2*X[idx]*(1-(T[idx]/S[idx])) > 0.:
+        #         Fe3[idx] = 2*X[idx]*(1-T[idx]/S[idx])
+        #     else:
+        #         Fe3[idx] = 0.
+        # Fe2[idx] = F1[4][idx] - Fe3[idx]
+    
+        # Fe2FeT = Fe2/(Fe2+Fe3)
+    
+        # FeO = CpxOrg[4] * Fe2FeT
+        # Fe2O3 = CpxOrg[4] * (1-Fe2FeT) * 1.1113
+        # Recalculate Cations
 
-        F1 = mol_fact.mul(self.calc_cat_prop())
-        F2 = self.calc_ox_prop()
-
-        self.data["S"] = F2.sum(axis=1, skipna=True)
-        # self.data['T'] = F1.sum(axis=1, skipna=True)
-        # self.data['X'] = np.nansum(F2*self.ox_num, axis=1)  # remove nansum
-
-        return self.data
+        return F1, F2, S, T, X
 
     def calc_cations_Papike(self, divisor):
         """Calculate Fe2/3 ratio using the method of Papike (1947)"""
@@ -201,9 +228,12 @@ Ol_E = pd.read_excel(PathXLS, "Olivine",
                      engine="openpyxl", na_values=["<", "-"])
 Feld_E = pd.read_excel(PathXLS, "Feldspar",
                        engine="openpyxl", na_values=["<", "-"])
+Cpx_E = pd.read_excel(PathXLS, "Clinopyroxene",
+                       engine="openpyxl", na_values=["<", "-"])
 
-Ol_ox = ["SiO2", "FeO", "MgO", "MnO", "CaO"]
+Ol_ox = ["SiO2", "FeO", "Cr2O3", "MgO", "MnO", "NiO", "CaO"]
 Feld_ox = ["SiO2", "TiO2", "Al2O3", "FeO", "MgO", "CaO", "Na2O", "K2O"]
+Cpx_ox = ["SiO2", "TiO2", "Al2O3", "Cr2O3", "FeO", "MgO", "MnO", "CaO", "Na2O"]
 
 Feld = ProbeData(Feld_E[Feld_ox], Feld_ox)
 Ol = ProbeData(Ol_E[Ol_ox], Ol_ox)
@@ -211,4 +241,4 @@ Ol = ProbeData(Ol_E[Ol_ox], Ol_ox)
 Ol_Cat = CalcCationsMin(Ol_E[Ol_ox], Ol_ox).calc_cations(4, change_head=False)
 Feld_Cat = CalcCationsMin(Feld_E[Feld_ox], Feld_ox).calc_cations(32)
 
-# Ol_test = CalcCationsFe3(Ol_E[Ol_ox], Ol_ox).calc_cations_Droop(4, 6)
+Cpx_test = CalcCationsFe3(Cpx_E[Cpx_ox], Cpx_ox)
