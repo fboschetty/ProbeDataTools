@@ -107,34 +107,3 @@ def check_cat_tot(probe_data: ProbeData,
                            for x in cat_tot["cat_tot"]]
     return cat_tot
 
-# %% Test
-# Path to Master xls
-PathXLS = "/Users/FelixBoschetty/Desktop/Vill_DB_SM_1.xlsx"
-
-# Read in sheets replacing strings as nans where needed
-Ol_E   = pd.read_excel(PathXLS, "Olivine",
-                       engine="openpyxl", na_values=["<", "-"])
-Feld_E = pd.read_excel(PathXLS, "Feldspar",
-                       engine="openpyxl", na_values=["<", "-"])
-Cpx_E  = pd.read_excel(PathXLS, "Clinopyroxene",
-                       engine="openpyxl", na_values=["<", "-"])
-
-# Oxides for each dataset
-Ol_ox = ["SiO2", "FeO", "Cr2O3", "MgO", "MnO", "NiO", "CaO"]
-Feld_ox = ["SiO2", "TiO2", "Al2O3", "FeO", "MgO", "CaO", "Na2O", "K2O"]
-Cpx_ox = ["SiO2", "TiO2", "Al2O3", "Cr2O3", "FeO", "MgO", "MnO", "CaO", "Na2O"]
-
-# Construct ProbeData objects for each dataset
-Ol = ProbeData(Ol_E, Ol_ox)
-Feld = ProbeData(Feld_E, Feld_ox)
-Cpx = ProbeData(Cpx_E, Cpx_ox)
-
-# Calc Cations using Generic Class
-Ol_Cat = calc_cations(probe_data=Ol, afu=4., change_head=False)   # Keep Oxide Headers
-Feld_Cat = calc_cations(Feld, 32.)  # Change Headers
-Cpx_Cat_Fe2 = calc_cations(Cpx, afu=6.) 
-
-# Calc Cations using Droop Fe3+ calc
-# Cpx_test = CalcCationsFe3(Cpx_E[Cpx_ox], Cpx_ox)
-
-# Calc Cations using Papike Fe3+ calc
