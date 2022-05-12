@@ -10,6 +10,7 @@ import pandas as pd
 
 from ProbeData import ProbeData
 from CalcCationsMin import calc_cations, check_cat_tot
+from CalcCationsMinFe3 import calc_Fe2O3_Droop, calc_Fe2O3_Papike
 
 # Path to Master xls
 PathXLS = "/Users/FelixBoschetty/Desktop/Vill_DB_SM_1.xlsx"
@@ -41,6 +42,9 @@ Cpx_Cat_Fe2 = calc_cations(Cpx, 6.)
 Ol_Cfu = check_cat_tot(probe_data=Ol, afu=4., cfu=3.)
 
 # Calc Cpx Cations using Droop Fe3+ calc
-# Cpx_Cat_Droop = CalcCationsFe3(Cpx_E[Cpx_ox], Cpx_ox)
+Cpx_Droop = calc_Fe2O3_Droop(Cpx, cfu=4., afu=6.)
+Cpx_Cat_Droop = calc_cations(Cpx_Droop, afu=6.)
 
 # Calc CpxCations using Papike Fe3+ calc
+Cpx_Papike = calc_Fe2O3_Papike(Cpx, afu=6.)
+Cpx_Cat_Papike = calc_cations(Cpx_Papike, afu=6.)
