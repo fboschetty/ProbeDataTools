@@ -39,3 +39,7 @@ Ol_cations = calc_cations(probe_data=Ol_probe, afu=4.)
 The above line returns a pandas DataFrame containing the cations per formula unit from the raw data in wt% oxides. This could be saved as another excel spreadsheet or used in further calculations.
 
 The code is written in such a way that it doesn't know what mineral is being input, so we could calculate the cations per formula unit for any given number of anions per formula unit. This makes it applicable to analyses of any mineral, given we have a constraint on the structure of the mineral's  unit lattice.
+
+# Suggestions
+
+If you have ideas for functionality that you would like to see, or bugs and errors you have found, please add them by opening an issue. For any questions drop me an email at eefob@leeds.ac.uk
