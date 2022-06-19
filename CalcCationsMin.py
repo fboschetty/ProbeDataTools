@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sun May  1 15:46:58 2022
+This contains a group of functions used to calculate the cations per formula unit of any mineral,
+given an ideal number of cations and anions per formula unit.
+It also contains functions for filtering out non-ideal analyses.
 
 @author: FelixBoschetty
 """
@@ -12,13 +14,11 @@ from ProbeData import probedata
 
 def calc_mol_prop(probe_data: probedata) -> pd.DataFrame:
     """Calculate molar proportions from wt% oxides."""
-
     return probe_data.data.div(probe_data.MR, axis=1)
 
 
 def calc_ox_prop(probe_data: probedata) -> pd.DataFrame:
     """Calculate anion proportions from wt% oxides."""
-
     return calc_mol_prop(probe_data).mul(probe_data.ox_num, axis=1)
 
 
@@ -30,31 +30,30 @@ def calc_ORF(probe_data: probedata, afu: float) -> pd.Series:
     afu : float
         Anions per formula unit e.g. for olivine, afu = 4.
     """
-
     ox_tot = calc_ox_prop(probe_data).sum(axis=1, skipna=True)
     return afu / ox_tot
 
 
 def calc_anions(probe_data: probedata, afu: float) -> pd.DataFrame:
-    """Calculate the number of anions per formula unit
+    """Calculate the number of anions per formula unit.
 
     Parameters
     ----------
     afu : float
         Anions per formula unit e.g. for olivine, afu = 4.
     """
-
     return calc_ox_prop(probe_data).mul(calc_ORF(probe_data, afu), axis=0)
 
 
 def change_headers_cfu(df: pd.DataFrame, probe_data: probedata) -> pd.DataFrame:
-    """Change headers on pd.DataFrame from wt% oxide to cfu"""
-
+    """Change headers on pd.DataFrame from wt% oxide to cfu."""
     cat_str = probe_data.cat_str[df.columns].to_dict()
     return df.rename(cat_str, axis=1)
 
 
-def calc_cations(probe_data: probedata, afu: float, change_head: bool = True) -> pd.DataFrame:
+def calc_cations(
+    probe_data: probedata, afu: float, change_head: bool = True
+) -> pd.DataFrame:
     """Calculate cations from wt% oxides.
 
     Parameters
@@ -66,7 +65,6 @@ def calc_cations(probe_data: probedata, afu: float, change_head: bool = True) ->
         True: Change headers to cations (default).
         False: Retain oxide headers (requirement for Pyrolite log transforms).
     """
-
     cations = calc_anions(probe_data, afu).mul(probe_data.cat_num, axis=1)
     cations = cations.div(probe_data.ox_num, axis=1)
 
@@ -79,8 +77,7 @@ def calc_cations(probe_data: probedata, afu: float, change_head: bool = True) ->
 
 
 def calc_cat_tot(probe_data: probedata, afu: float) -> pd.Series:
-    """ Calculate the cation total per analysis. Add to column cat_tot"""
-
+    """Calculate the cation total per analysis. Add to column cat_tot."""
     cations = calc_cations(probe_data, afu)
     cations["cat_tot"] = cations.sum(axis=1, skipna=True)
     return cations
@@ -90,12 +87,12 @@ def check_cat_tot(probe_data: probedata,
                   cfu: float,
                   afu: float,
                   wiggle: float = 0.005) -> list:
-    """ Check whether the cation total of each analysis lies within a range.
-        Returns a list of booleans for boolean indexing.
+    """Check whether the cation total of each analysis lies within a range.
+
+    Returns a list of booleans for boolean indexing.
 
     Parameters
     ----------
-
     cfu : float
         ideal cation per formula unit total e.g. for olivine = 3.
 
@@ -104,13 +101,12 @@ def check_cat_tot(probe_data: probedata,
 
     wiggle : float
         fraction of ideal cfu either side of which is acceptable (default = 0.005)
-
     """
-
     cat_tot = calc_cat_tot(probe_data, afu)
-    upper, lower = cfu + cfu*wiggle, cfu - cfu*wiggle
+    upper, lower = cfu + cfu * wiggle, cfu - cfu * wiggle
 
-    cat_tot = [True if (x <= upper) & (x >= lower) else False
-               for x in cat_tot["cat_tot"]]
+    cat_tot = [
+        True if (x <= upper) & (x >= lower) else False for x in cat_tot["cat_tot"]
+    ]
 
     return cat_tot
