@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May 11 16:50:53 2022
+This pulls mineral data from Vill_DB_SM_1.xlsx.
+Then calculates the cations per formula unit of olivine, plagioclase and clinopyroxene data.
 
 @author: FelixBoschetty
 """

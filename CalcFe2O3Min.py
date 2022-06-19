@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May 11 16:42:11 2022
+This contains relevant functions to calculate the Fe2/3 ratio of analyses of iron-containing
+minerals via the method of Droop (1987).
+
+It also contains functions to calculate the Fe2/3 of specific minerals:
+    (1) pyroxene using the method of Papike 1947.
+    (2) spinel using the method of Stormer 1983.
 
 @author: FelixBoschetty
 """
@@ -12,7 +17,7 @@ from CalcCationsMin import calc_mol_prop, calc_cations
 
 
 def calc_New_FeO_Fe2O3(probe_data: probedata, Fe3: list) -> probedata:
-    """Makes a deepcopy of the probedata object and appends new FeO and Fe2O3 values"""
+    """Make a deepcopy of the probedata object and appends new FeO and Fe2O3 values."""
     Fe2 = probe_data.data['FeO'] - Fe3
 
     Fe2FeT = Fe2/(Fe2+Fe3)
@@ -29,17 +34,24 @@ def calc_New_FeO_Fe2O3(probe_data: probedata, Fe3: list) -> probedata:
 
 
 def calc_Fe2O3_Droop(probe_data: probedata, cfu: float, afu: float) -> probedata:
-    """Calculate Fe2/3 ratio stoichiometrically using the method of Droop, 1987.
-      Parameters
+    """Calculate Fe2/3 ratio stoichiometrically using the method of Droop, 1987 [1].
+
+    Parameters
     ----------
+    probe_data: probedata
+        probe data object containing raw data.
+
     cfu : float
         ideal cations per formula unit e.g. for clinopyroxene, cfu = 4.
 
     afu : float
         ideal anions per formula unit e.g. for clinopyroxene, afu = 6.
 
-    """
+    References
+    ----------
+    [1] https://doi.org/10.1180/minmag.1987.051.361.10
 
+    """
     # Calculate cation and oxygen proportions
     mol_prop = probe_data.cat_num.mul(calc_mol_prop(probe_data))
     mol_prop_tot = mol_prop.sum(axis=1, skipna=True)
@@ -80,8 +92,20 @@ def calc_Fe2O3_Droop(probe_data: probedata, cfu: float, afu: float) -> probedata
 
 
 def calc_Fe2O3_Papike(probe_data: probedata, afu: float) -> probedata:
-    """Calculate Fe2/3 ratio of Pyroxene using the method of Papike et al., (1947)"""
+    """Calculate Fe2/3 ratio of Pyroxene using the method of Papike et al., (1947) [1].
 
+    Parameters
+    ----------
+    probe_data: probedata
+        probe data object containing raw data.
+
+    afu : float
+        ideal anions per formula unit e.g. for clinopyroxene, afu = 6.
+
+    References
+    ----------
+    [1] https://cir.nii.ac.jp/crid/1573105975395861248
+    """
     cations = calc_cations(probe_data, afu=afu)
 
     AlIV = 2. - cations.Si
@@ -94,8 +118,20 @@ def calc_Fe2O3_Papike(probe_data: probedata, afu: float) -> probedata:
 
 
 def calc_sp_Fe3_Stormer(probe_data: probedata, afu: float) -> probedata:
-    """Calculate Fe3+ for Spinel cations using the method of Stormer, 1983"""
+    """Calculate Fe3+ for Spinel cations using the method of Stormer, 1983 [1].
 
+    Parameters
+    ----------
+    probe_data: probedata
+        probe data object containing raw data.
+
+    afu : float
+        ideal anions per formula unit e.g. for clinopyroxene, afu = 6.
+
+    References
+    ----------
+    [1] https://pubs.geoscienceworld.org/msa/ammin/article/68/5-6/586/104818/
+    """
     cations = calc_cations(probe_data, afu=afu)
 
     charge = cations * probedata.cat_chrg

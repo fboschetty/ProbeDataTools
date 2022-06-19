@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu May 12 13:12:55 2022
-
+(In Progress) contains relevant functions to calculate the endmembers of common minerals
+e.g. olivine, feldspar, clinopyroxene, amphibole and spinels.
 @author: FelixBoschetty
 """
 
@@ -13,7 +13,7 @@ from typing import List
 
 
 def calc_ol_EM(cations: pd.DataFrame) -> pd.DataFrame:
-    """ Calculate olivine endmembers.
+    """Calculate olivine endmembers.
 
     Parameters
     ----------
@@ -29,7 +29,7 @@ def calc_ol_EM(cations: pd.DataFrame) -> pd.DataFrame:
     # Ensure No Nans
     cations[cations.isnull()] = 0.
 
-    Fo = 100 * cations.Mg/(cations.Mg+cations.Fe2+cations.Mn+cations.Ca)  # Forsterite [Mg2 SiO4]
+    Fo = 100 * cations.Mg/(cations.Mg+cations.Fe2+cations.Mn+cations.Ca)    # Forsterite [Mg2 SiO4]
     Fay = 100 * cations.Fe2/(cations.Mg+cations.Fe2+cations.Mn+cations.Ca)  # Fayalite [Fe2 SiO4]
     Teph = 100 * cations.Mn/(cations.Mg+cations.Fe2+cations.Mn+cations.Ca)  # Tephroite [Mn2 SiO4]
     Mont = 100 * cations.Ca/(cations.Mg+cations.Fe2+cations.Mn+cations.Ca)  # Monticellite [Ca2 SiO4]
@@ -40,7 +40,7 @@ def calc_ol_EM(cations: pd.DataFrame) -> pd.DataFrame:
 
 
 def calc_feld_EM(cations: pd.DataFrame) -> pd.DataFrame:
-    """ Calculate feldspar endmembers.
+    """Calculate feldspar endmembers.
 
     Parameters
     ----------
@@ -58,7 +58,7 @@ def calc_feld_EM(cations: pd.DataFrame) -> pd.DataFrame:
 
     An = 100 * cations.Ca/(cations.Ca+cations.Na+cations.K)  # Anorthite [CaAl2 Si2O8]
     Ab = 100 * cations.Na/(cations.Ca+cations.Na+cations.K)  # Albite [NaAl Si2O8]
-    Or = 100 * cations.K/(cations.Ca+cations.Na+cations.K)  # Orthoclase [KAl Si2O8]
+    Or = 100 * cations.K/(cations.Ca+cations.Na+cations.K)   # Orthoclase [KAl Si2O8]
 
     EM = pd.DataFrame({'An': An, 'Ab': Ab, 'Or': Or})
 
@@ -66,7 +66,7 @@ def calc_feld_EM(cations: pd.DataFrame) -> pd.DataFrame:
 
 
 def calc_cpx_EM_quad(cations: pd.DataFrame) -> pd.DataFrame:
-    """ Calculate clinopyroxene QUAD endmembers.
+    """Calculate clinopyroxene QUAD endmembers.
 
     Parameters
     ----------
@@ -83,8 +83,8 @@ def calc_cpx_EM_quad(cations: pd.DataFrame) -> pd.DataFrame:
     cations[cations.isnull()] = 0.
 
     Fs = 100 * cations.Fe2/(cations.Fe2+cations.Mg+cations.Ca)  # Ferrosilite [Fe2 Si2O6]
-    En = 100 * cations.Mg/(cations.Fe2+cations.Mg+cations.Ca)  # Enstatite [Mg2 Si2O6]
-    Wo = 100 * cations.Ca/(cations.Fe2+cations.Mg+cations.Ca)  # Wollastonite [Ca2 Si2O6]
+    En = 100 * cations.Mg/(cations.Fe2+cations.Mg+cations.Ca)   # Enstatite [Mg2 Si2O6]
+    Wo = 100 * cations.Ca/(cations.Fe2+cations.Mg+cations.Ca)   # Wollastonite [Ca2 Si2O6]
 
     EM = pd.DataFrame({'Fs': Fs, 'En': En, 'Wo': Wo})
 
@@ -93,8 +93,10 @@ def calc_cpx_EM_quad(cations: pd.DataFrame) -> pd.DataFrame:
 
 def calc_cpx_EM_Putirka(cations: pd.DataFrame) -> pd.DataFrame:
     """Calculate clinopyroxene endmembers using the method of Putirka (2008).
-       Also calculates Fe3+ so only use on datasets that haven't calculated stoichiometrically."""
 
+    Also calculates Fe3+ so only use on datasets that haven't calculated stoichiometrically.
+
+    """
     EM = deepcopy(cations)
 
     # Ensure No Nans
@@ -122,21 +124,22 @@ def sites(cations: pd.DataFrame,
           total: pd.Series,
           cat_sites: List[str],
           con: str,
-          rem: str) -> pd.DataFrame:  # pre: List[str] = []
-    """
-    Helper function to assign cations to metal sites.
+          rem: str) -> pd.DataFrame:
+    """Assign cations to metal sites. Generic function.
+
     Parameters
     ----------
     cations : pd.DataFrame
         dataframe containing calculated cations w/ cation headers
-    total : pd.Series
+
+    total :pd.Series
         The total number of cations in the site, as a series of length Cations
+
     cat_sites : list[str]
         list of cations that may be contained in site in order of occupancy
+
     con : str
         string to form cations in site
-    pre : str
-        string to identify cations split between previously calculated sites
 
     Returns
     -------
@@ -177,8 +180,23 @@ def sites(cations: pd.DataFrame,
 
 
 def assign_cpx_sites(cations: pd.DataFrame) -> pd.DataFrame:
-    """Assign clinopyroxene cations to metal sites in unit cell after Morimoto (1998)."""
+    """Assign clinopyroxene cations to metal sites in unit cell after Morimoto (1998) [1].
 
+    Parameters
+    ----------
+    cations: pd.DataFrame
+        dataframe containing calculated cations w/ cation headers.
+
+    Returns
+    -------
+    M2: pd.DataFrame
+        dataframe with cations and filled metal cation sites.
+
+    References
+    ----------
+    [1] https://doi.org/10.1007/BF01226262
+
+    """
     # Ensure No Nans
     cations[cations.isnull()] = 0.
 
@@ -216,7 +234,7 @@ def assign_cpx_sites(cations: pd.DataFrame) -> pd.DataFrame:
 
 
 def calc_cpx_EM_Dietrich(cations: pd.DataFrame) -> pd.DataFrame:
-    """Calculate clinpyroxene endmembers using the method of Dietrich & Petrakasis (1996).
+    """Calculate clinpyroxene endmembers using the method of Dietrich & Petrakasis (1996) [1].
 
     Parameters
     ----------
@@ -249,6 +267,10 @@ def calc_cpx_EM_Dietrich(cations: pd.DataFrame) -> pd.DataFrame:
         En: Enstatite [Mg2 Si2O6].
 
         Wo: Wollastonite [Ca2 Si2O6].
+
+    References
+    ----------
+    [1] https://doi.org/10.1007/BF01191990
 
     """
     # Ensure No Nans
@@ -294,9 +316,25 @@ def calc_cpx_EM_Dietrich(cations: pd.DataFrame) -> pd.DataFrame:
 
 
 def assign_amph_sites_Leake1978(cations: pd.DataFrame) -> pd.DataFrame:
-    """Assign Amphibole Cations to Metal Sites according to Leake et al., 1978.
-       Use when Fe3 has already been calculated."""
+    """Assign Amphibole Cations to Metal Sites according to Leake et al., 1978 [1].
 
+    Use when Fe3 has already been calculated.
+
+    Parameters
+    ----------
+    cations : pd.DataFrame
+        dataframe of cations with cfu headers.
+
+    Returns
+    -------
+    M2: pd.DataFrame
+         dataframe with cations and filled metal cation sites.
+
+    References
+    ----------
+    [1] https://pubs.geoscienceworld.org/msa/ammin/article/63/11-12/1023/40814/
+
+    """
     T = sites(cations,
               total=8.0-cations.Si,
               cat_sites=["Al", "Cr", "Fe3", "Ti"],
@@ -331,9 +369,25 @@ def assign_amph_sites_Leake1978(cations: pd.DataFrame) -> pd.DataFrame:
 
 
 def assign_amph_sites_Leake1997(cations: pd.DataFrame) -> pd.DataFrame:
-    """Assign Amphibole Cations to Metal Sites according to Leake et al., 1997.
-       Use when Fe3 is known."""
+    """Assign Amphibole Cations to Metal Sites according to Leake et al., 1997 [1].
 
+    Use when Fe3 is known.
+
+    Parameters
+    ----------
+    cations : pd.DataFrame
+        dataframe of cations with cfu headers.
+
+    Returns
+    -------
+    M2: pd.DataFrame
+         dataframe with cations and filled metal cation sites.
+
+    References
+    ----------
+    [1] https://doi.org/10.1180/minmag.1997.061.405.13
+
+    """
     T = sites(cations,
               total=8.0-cations.Si,
               cat_sites=["Al", "Ti"],
@@ -369,14 +423,15 @@ def assign_amph_sites_Leake1997(cations: pd.DataFrame) -> pd.DataFrame:
 
 def assign_amph_sites_Leake1997_Fe3(cations: pd.DataFrame) -> pd.DataFrame:
     """Assign Amphibole Cations to Metal Sites according to Leake et al., 1997.
-       Will calculate Fe3 using stoichiometry at expense of Fe2. See Rock and Leake et al., 1984."""
 
+    Will calculate Fe3 using stoichiometry at expense of Fe2. See Rock and Leake et al., 1984.
+
+    """
     return NotImplementedError
 
 
 def assign_amph_name(sites: pd.DataFrame) -> List[str]:
     """Assign Amphibole Name to Amphibole cations."""
-
     CANA = sites["Ca_B"] + sites["Na_B"]
     NAB = sites["Na_B"]
 
@@ -433,7 +488,4 @@ def calc_sp_EM(cations: pd.DataFrame) -> pd.DataFrame:
         Ulv: Ulvöspinel [Fe2TiO4]
 
     """
-
-    # two major types for plotting?
-
     raise NotImplementedError
