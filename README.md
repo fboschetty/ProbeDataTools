@@ -42,4 +42,4 @@ The code is written in such a way that it doesn't know what mineral is being inp
 
 # Suggestions
 
-If you have ideas for functionality that you would like to see, or bugs and errors you have found, please add them by opening an issue. For any questions drop me an email at eefob@leeds.ac.uk
+If you have ideas for functionality that you would like to see, or bugs and errors you have found, please add them by opening an issue. Or me an email at eefob@leeds.ac.uk
