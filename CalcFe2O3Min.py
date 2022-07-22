@@ -16,12 +16,48 @@ from ProbeData import probedata
 from CalcCationsMin import calc_mol_prop, calc_cations
 
 
-def calc_New_FeO_Fe2O3(probe_data: probedata, Fe3: list) -> probedata:
-    """Make a deepcopy of the probedata object and appends new FeO and Fe2O3 values."""
-    Fe2 = probe_data.data['FeO'] - Fe3
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed May 11 16:42:11 2022
 
+@author: FelixBoschetty
+"""
+from copy import deepcopy
+
+from CalcCationsMin import calc_cations, calc_mol_prop
+from ProbeData import ProbeData
+
+
+def calc_Fe2O3_Droop(probe_data: ProbeData, cfu: float, afu: float) -> ProbeData:
+    """Calculate Fe2/3 ratio stoichiometrically using the method of Droop, 1987.
+      Parameters
+    ----------
+    cfu : float
+        ideal cations per formula unit e.g. for clinopyroxene, cfu = 4.
+
+    afu : float
+        ideal anions per formula unit e.g. for clinopyroxene, afu = 6.
+
+    """
+
+    # Calculate for 6 oxygens
+    cpxCations = calc_cations(probe_data, afu=afu)
+    S = cpxCations.sum(axis=1)
+
+    # Calculate for 4 Cations
+    MolProp = calc_mol_prop(probe_data)
+    MolPropTot = MolProp.sum(axis=1, skipna=True)
+    Factor = cfu/MolPropTot
+    normMolProp = MolProp.multiply(Factor, axis=0)
+    T = normMolProp.sum(axis=1)
+
+    # Calculate new FeO and Fe2O3 contents
+    Fe3ideal = 2*afu*(1-(T/S))
+    Fe3 = [x if x > 0. else 0. for x in Fe3ideal]  # Check amount of Fe3+ isn't negative
+
+    Fe2 = cpxCations['Fe2'] - Fe3  # Calculate new Fe2
     Fe2FeT = Fe2/(Fe2+Fe3)
-
     FeO = probe_data.data['FeO'] * Fe2FeT
     Fe2O3 = probe_data.data['FeO'] * (1-Fe2FeT) * 1.1113
 
@@ -33,114 +69,102 @@ def calc_New_FeO_Fe2O3(probe_data: probedata, Fe3: list) -> probedata:
     return probe_data_new
 
 
-def calc_Fe2O3_Droop(probe_data: probedata, cfu: float, afu: float) -> probedata:
-    """Calculate Fe2/3 ratio stoichiometrically using the method of Droop, 1987 [1].
 
-    Parameters
+def calc_Fe2O3_Droop_Eq5(probe_data: ProbeData, cfu: float = 15.0, afu: float = 23.0) -> ProbeData:
+    """Calculate Fe2/3 ratio stoichiometrically using the method of Droop, 1987.
+    Equation 5 tailored for Fe-Mg amphiboles. Requires calculation of cations on the basis of 23.0 oxygens, anhydrous.
+    Using 15.0 cations exclusive of Na and K.
+
+      Parameters
     ----------
-    probe_data: probedata
-        probe data object containing raw data.
-
     cfu : float
         ideal cations per formula unit e.g. for clinopyroxene, cfu = 4.
 
     afu : float
         ideal anions per formula unit e.g. for clinopyroxene, afu = 6.
 
-    References
-    ----------
-    [1] https://doi.org/10.1180/minmag.1987.051.361.10
-
     """
-    # Calculate cation and oxygen proportions
-    mol_prop = probe_data.cat_num.mul(calc_mol_prop(probe_data))
-    mol_prop_tot = mol_prop.sum(axis=1, skipna=True)
-    mol_fact = cfu / mol_prop_tot
 
-    rel_ox = probe_data.ox_num / probe_data.cat_num  # Relative number of oxygens
-    ox_no = mol_prop.mul(rel_ox, axis=1)
-    ox_tot = ox_no.sum(axis=1, skipna=True)
-    ox_fact = afu / ox_tot
+    raise NotImplementedError()
 
-    # Calculate Factor 1 and 2
-    F1 = mol_prop.mul(mol_fact, axis=0)
-    F2 = mol_prop.mul(ox_fact, axis=0)
+    # Calculate for 6 oxygens
+    cpxCations = calc_cations(probe_data, afu=afu)
+    S = cpxCations.sum(axis=1)
 
-    # Calculate Droop Components S, T, X and N
-    S = F2.sum(axis=1, skipna=True)
-    T = F1.sum(axis=1, skipna=True)
-
-    OxNum6 = F2.mul(rel_ox, axis=1)
-    X = OxNum6.sum(axis=1, skipna=True)
-
-    OxNum4 = F1.mul(rel_ox, axis=1)
-    N = OxNum4.sum(axis=1, skipna=True)
-
-    # check S/T and X/N are equal
-    if all(S/T - X/N) < 0.00001:
-        pass
-    else:
-        raise Exception("S/T not equal to X/N, something has gone wrong!")
+    # Calculate for 4 Cations
+    catnorm = cfu/S
+    cpx4Cations = cpxCations.mul(catnorm, axis=0)
+    T = cpx4Cations.sum(axis=1)
 
     # Calculate new FeO and Fe2O3 contents
-    test = 2*X*(1-(T/S))
-    Fe3 = [x if x > 0. else 0. for x in test]
+    Fe3ideal = 2*afu*(1-(T/S))
+    Fe3 = [x if x > 0. else 0. for x in Fe3ideal]  # Check amount of Fe3+ isn't negative
 
-    probe_data_new = calc_New_FeO_Fe2O3(probe_data, Fe3)
+    Fe2 = cpxCations['Fe2'] - Fe3  # Calculate new Fe2
+    Fe2FeT = Fe2/(Fe2+Fe3)
+    FeO = probe_data.data['FeO'] * Fe2FeT
+    Fe2O3 = probe_data.data['FeO'] * (1-Fe2FeT) * 1.1113
+
+    probe_data_new = deepcopy(probe_data)
+    probe_data_new.data['FeO'] = FeO
+    probe_data_new.data['Fe2O3'] = Fe2O3
+    probe_data_new.oxides.append('Fe2O3')
 
     return probe_data_new
 
 
-def calc_Fe2O3_Papike(probe_data: probedata, afu: float) -> probedata:
-    """Calculate Fe2/3 ratio of Pyroxene using the method of Papike et al., (1947) [1].
+def calc_Fe2O3_Droop_Eq6(probe_data: ProbeData, cfu: float = 13.0, afu: float = 23.0) -> ProbeData:
+    """Calculate Fe2/3 ratio stoichiometrically using the method of Droop, 1987.
+    Equation 6 tailored for many calcic amphiboles. Requires cations on the basis of 23.0 oxygens, anhydrous.
+    Using 13.0 cations, exclusive of Ca, Na and K.
 
-    Parameters
+      Parameters
     ----------
-    probe_data: probedata
-        probe data object containing raw data.
+    cfu : float
+        ideal cations per formula unit e.g. for clinopyroxene, cfu = 4.
 
     afu : float
         ideal anions per formula unit e.g. for clinopyroxene, afu = 6.
 
-    References
-    ----------
-    [1] https://cir.nii.ac.jp/crid/1573105975395861248
     """
-    cations = calc_cations(probe_data, afu=afu)
 
-    AlIV = 2. - cations.Si
-    AlVI = [x if x > 0. else 0. for x in cations.Al - AlIV]
-    Fe3 = [x if x > 0 else 0. for x in cations.Na + AlIV - AlVI - cations.Ti - cations.Cr]
+    raise NotImplementedError()
 
-    probe_data_new = calc_New_FeO_Fe2O3(probe_data, Fe3)
+    # Calculate for 6 oxygens
+    cpxCations = calc_cations(probe_data, afu=afu)
+    S = cpxCations.sum(axis=1)
+
+    # Calculate for 4 Cations
+    catnorm = cfu/S
+    cpx4Cations = cpxCations.mul(catnorm, axis=0)
+    T = cpx4Cations.sum(axis=1)
+
+    # Calculate new FeO and Fe2O3 contents
+    Fe3ideal = 2*afu*(1-(T/S))
+    Fe3 = [x if x > 0. else 0. for x in Fe3ideal]  # Check amount of Fe3+ isn't negative
+
+    Fe2 = cpxCations['Fe2'] - Fe3  # Calculate new Fe2
+    Fe2FeT = Fe2/(Fe2+Fe3)
+    FeO = probe_data.data['FeO'] * Fe2FeT
+    Fe2O3 = probe_data.data['FeO'] * (1-Fe2FeT) * 1.1113
+
+    probe_data_new = deepcopy(probe_data)
+    probe_data_new.data['FeO'] = FeO
+    probe_data_new.data['Fe2O3'] = Fe2O3
+    probe_data_new.oxides.append('Fe2O3')
 
     return probe_data_new
 
+# def calc_Fe2O3_Papike(probe_data: ProbeData, afu: float) -> ProbeData:
+#     """Calculate Fe2/3 ratio of Pyroxene using the method of Papike et al., (1947)"""
 
-def calc_sp_Fe3_Stormer(probe_data: probedata, afu: float) -> probedata:
-    """Calculate Fe3+ for Spinel cations using the method of Stormer, 1983 [1].
+#     cations = calc_cations(probe_data, afu=afu)
 
-    Parameters
-    ----------
-    probe_data: probedata
-        probe data object containing raw data.
+#     AlIV = 2. - cations.Si
+#     AlVI = [x if x > 0. else 0. for x in cations.Al - AlIV]
+#     Fe3 = [x if x > 0 else 0. for x in cations.Na + AlIV - AlVI - cations.Ti - cations.Cr]
 
-    afu : float
-        ideal anions per formula unit e.g. for clinopyroxene, afu = 6.
+#     probe_data_new = calc_New_FeO_Fe2O3(probe_data, Fe3)
 
-    References
-    ----------
-    [1] https://pubs.geoscienceworld.org/msa/ammin/article/68/5-6/586/104818/
-    """
-    cations = calc_cations(probe_data, afu=afu)
+#     return probe_data_new
 
-    charge = cations * probedata.cat_chrg
-    charge_tot = charge.sum(axis=1, skipna=True)
-
-    charge_diff = 8. - (charge_tot - charge.Fe2)
-    Fe2 = 3*cations.Fe2 - charge_diff
-    Fe3 = cations.Fe2 - Fe2
-
-    probe_data_new = calc_New_FeO_Fe2O3(probe_data, Fe3)
-
-    return probe_data_new
