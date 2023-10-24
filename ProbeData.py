@@ -8,9 +8,9 @@ This pulls information from oxides.csv. This can be edited to add more obscure o
 @author: FelixBoschetty
 """
 
+import os
 import pandas as pd
 from dataclasses import dataclass
-
 
 @dataclass
 class probedata:
@@ -32,10 +32,12 @@ class probedata:
 
     data: pd.DataFrame
     oxides: list[str]
+    here = os.path.dirname(os.path.abspath(__file__))
 
-    oxide_info = pd.read_csv(r'oxides.csv', index_col=0)
+    filename = os.path.join(here, 'oxides.csv')
+    oxide_info = pd.read_csv(filename, index_col=0)
 
-    # Extract useful information from dataframe
+    # Extract useful information from oxides_info
     MR = oxide_info.loc['MR'].astype('float')
     cat_num = oxide_info.loc['cations'].astype('float')
     ox_num = oxide_info.loc['oxygens'].astype('float')

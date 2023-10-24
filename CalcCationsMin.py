@@ -9,6 +9,7 @@ It also contains functions for filtering out non-ideal analyses.
 """
 
 import pandas as pd
+
 from ProbeData import probedata
 
 
@@ -76,7 +77,7 @@ def calc_cations(
     return cations
 
 
-def calc_cat_tot(probe_data: probedata, afu: float) -> pd.Series:
+def calc_cat_tot(probe_data: probedata, afu: float) -> pd.DataFrame:
     """Calculate the cation total per analysis. Add to column cat_tot."""
     cations = calc_cations(probe_data, afu)
     cations["cat_tot"] = cations.sum(axis=1, skipna=True)

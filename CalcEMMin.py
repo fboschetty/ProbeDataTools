@@ -6,10 +6,15 @@ e.g. olivine, feldspar, clinopyroxene, amphibole and spinels.
 @author: FelixBoschetty
 """
 
-import pandas as pd
-import numpy as np
 from copy import deepcopy
 from typing import List
+
+import numpy as np
+import pandas as pd
+
+from CalcCationsMin import calc_cations
+from CalcFe2O3Min import calc_Fe2O3_Droop
+from ProbeData import probedata
 
 
 def calc_ol_EM(cations: pd.DataFrame) -> pd.DataFrame:
@@ -177,6 +182,84 @@ def sites(cations: pd.DataFrame,
             sites = sites.drop(col, axis=1)
 
     return sites
+
+
+def calc_cpx_EM_Neave(probedata: probedata) -> pd.DataFrame:
+    """Calculate clinopyroxene endmembers using the method of Neave (2023).
+       Uses Droop 1987 to estimate Fe2O3.
+
+    Args:
+        probedata (probedata): clinopyroxene probedata object.
+
+    Returns:
+        pd.DataFrame: dataframe including endmembers.
+    """
+
+    # Calc Cpx Cations using Droop Fe3+ calc
+    Cpx_Droop = calc_Fe2O3_Droop(probedata, cfu=4., afu=6.)
+    Cpx_Cat_Droop = calc_cations(Cpx_Droop, afu=6.)
+
+    Al_IV = 2 - Cpx_Cat_Droop["Si"]
+    Al_IV[Al_IV < 0.] = 0.0
+    Al_VI = Cpx_Cat_Droop["Al"] - Al_IV
+    Al_VI[Al_VI < 0.] = 0.0
+
+    Jd = np.zeros(len(Cpx_Cat_Droop))
+    Ae = np.zeros(len(Cpx_Cat_Droop))
+    Np = np.zeros(len(Cpx_Cat_Droop))
+
+    # Assign Jadeite
+    for i in range(len(Cpx_Cat_Droop)):
+        if Cpx_Cat_Droop["Na"][i] < Al_VI[i]:
+            Jd[i] = Cpx_Cat_Droop["Na"][i]
+        else:
+            Jd[i] = Al_VI[i]
+    Na_Remaining = Cpx_Cat_Droop["Na"] - Jd
+
+    # Assign Aegirine
+    for i in range(len(Cpx_Cat_Droop)):
+        if Cpx_Cat_Droop["Fe3"][i] < Na_Remaining[i]:
+            Ae[i] = Cpx_Cat_Droop["Fe3"][i]
+        else:
+            Ae[i] = Na_Remaining[i]
+    Na_Remaining = Na_Remaining - Ae
+
+    # Assign Neptunite
+    Np = Cpx_Cat_Droop["Na"] - Jd - Ae
+
+    # Assign Essenite
+    Es = Cpx_Cat_Droop["Fe3"] - Ae
+
+    # Assign Ca-Tschermacks
+    CaTs = Al_VI - Jd
+
+    # Assign Ti-Tschermacks
+    CaTi = Cpx_Cat_Droop["Ti"] - Np/2
+
+    # Assign Cr-Al-Tscermacks
+    CrAlTs = Cpx_Cat_Droop["Cr"]
+
+    # Assign Diopside-Hedenbergite
+    DiHd = Cpx_Cat_Droop["Ca"] - Es - CaTs - CaTi - CrAlTs
+
+    # Form Enstatite-Ferrosilite
+    EnFs = (Cpx_Cat_Droop["Mg"] + Cpx_Cat_Droop["Fe2"] + Cpx_Cat_Droop["Mn"]) - DiHd/2
+
+    EM = deepcopy(Cpx_Cat_Droop)
+
+    EM["Al_IV"] = Al_IV
+    EM["Al_VI"] = Al_VI
+    EM["Jd"] = Jd
+    EM["Ae"] = Ae
+    EM["Np"] = Np
+    EM["Es"] = Es
+    EM["CaTs"] = CaTs
+    EM["CaTi"] = CaTi
+    EM["CrAlTs"] = CrAlTs
+    EM["DiHd"] = DiHd
+    EM["EnFs"] = EnFs
+
+    return EM
 
 
 def assign_cpx_sites(cations: pd.DataFrame) -> pd.DataFrame:
