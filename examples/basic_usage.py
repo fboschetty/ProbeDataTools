@@ -47,17 +47,13 @@ Cpx_Cat_Fe2 = calc_cations(Cpx, 6.)
 Cpx_Droop = calc_Fe2O3_Droop(Cpx, cfu=4., afu=6.)
 Cpx_Cat_Droop = calc_cations(Cpx_Droop, afu=6.)
 
-# Calc CpxCations using Papike Fe3+ calc
-Cpx_Papike = calc_Fe2O3_Papike(Cpx, afu=6.)
-Cpx_Cat_Papike = calc_cations(Cpx_Papike, afu=6.)
-
 # Check which Cpx Cfu Totals are good
 Cpx_Cfu_Good = check_cat_tot(probe_data=Cpx_Droop, cfu=4., afu=6., wiggle=0.005)
 
 
-# ASSIGN CATIONS TO METAL SITES #
+# # ASSIGN CATIONS TO METAL SITES #
 
-Cpx_Sites = CalcEMMin.assign_cpx_sites(Cpx_Cat_Droop)
+# Cpx_Sites = CalcEMMin.assign_cpx_sites(Cpx_Cat_Droop)
 
 
 # CALCULATE MINERAL ENDMEMBERS #
@@ -75,4 +71,6 @@ Cpx_Em_Quad = CalcEMMin.calc_cpx_EM_quad(Cpx_Cat_Droop)
 Cpx_EM_Putirka = CalcEMMin.calc_cpx_EM_Putirka(Cpx_Cat_Fe2)
 
 # Calculate Cpx EM using Dietrech method
-Cpx_EM_Ditrich = CalcEMMin.calc_cpx_EM_Dietrich(Cpx_Cat_Droop)
+# Cpx_EM_Ditrich = CalcEMMin.calc_cpx_EM_Dietrich(Cpx_Cat_Droop)
+
+print(Ol_EM)
