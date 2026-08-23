@@ -1,8 +1,8 @@
 """
 Core data model for electron-microprobe data.
 
-`ProbeData` associates a probe-analysis DataFrame with the oxide
-metadata required by the calculation modules.
+`ProbeData` associates a probe-analysis DataFrame with metadata required
+to process its analytical species.
 """
 
 from __future__ import annotations
@@ -14,10 +14,10 @@ from importlib.resources import files
 import pandas as pd
 
 
-def load_oxide_info() -> pd.DataFrame:
-    """Load the bundled oxide metadata table."""
+def load_species_info() -> pd.DataFrame:
+    """Load the bundled species metadata table."""
 
-    path = files("probedatatools").joinpath("oxides.csv")
+    path = files("probedatatools").joinpath("species.csv")
     return pd.read_csv(path, index_col=0)
 
 
@@ -26,38 +26,59 @@ class ProbeData:
     """Probe analyses and metadata for the selected species."""
 
     data: pd.DataFrame
-    oxides: Sequence[str]
+    species: Sequence[str]
 
-    oxide_info = load_oxide_info()
+    species_info = load_species_info()
 
-    MR = oxide_info.loc["MR"].astype(float)
-    cat_num = oxide_info.loc["cations"].astype(float)
-    ox_num = oxide_info.loc["oxygens"].astype(float)
-    an_num = oxide_info.loc["anions"].astype(float)
-    cat_str = oxide_info.loc["cat_str"].astype(str)
-    MR_El = oxide_info.loc["MR_El"].astype(float)
+    MR = species_info.loc["MR"].astype(float)
+    cat_num = species_info.loc["cations"].astype(float)
+    ox_num = species_info.loc["oxygens"].astype(float)
+    an_num = species_info.loc["anions"].astype(float)
+    cat_str = species_info.loc["cat_str"].astype(str)
+    MR_El = species_info.loc["MR_El"].astype(float)
     cat_chrg = (2.0 * ox_num / cat_num).where(cat_num > 0, 0.0)
 
     def __post_init__(self) -> None:
         """Validate species and select their metadata."""
 
-        self.oxides = list(self.oxides)
+        self.species = list(self.species)
 
-        unknown = sorted(set(self.oxides) - set(self.oxide_info.columns))
+        valid = set(self.species_info.columns) | set(self.cat_str)  # Allow headers to be elements as well as oxides
+        unknown = sorted(set(self.species) - valid)
+
         if unknown:
-            raise ValueError(
-                f"Species not found in oxides.csv: {unknown}"
-            )
+            raise ValueError(f"Species not found in species.csv: {unknown}")
 
         self._refresh_metadata()
 
-    def _refresh_metadata(self) -> None:
-        """Refresh metadata for the current species list."""
+    def _metadata_source(self, species: str) -> str:
+        """Return the metadata column associated with a species."""
 
-        self.MR_use = self.MR.loc[self.oxides]
-        self.cat_num_use = self.cat_num.loc[self.oxides]
-        self.ox_num_use = self.ox_num.loc[self.oxides]
-        self.an_num_use = self.an_num.loc[self.oxides]
-        self.cat_str_use = self.cat_str.loc[self.oxides]
-        self.cat_chrg_use = self.cat_chrg.loc[self.oxides]
-        self.MR_El_use = self.MR_El.loc[self.oxides]
+        if species in self.species_info.columns:
+            return species
+
+        matches = self.cat_str[self.cat_str == species].index
+        if len(matches) != 1:
+            raise ValueError(f"Species has no unique metadata source: {species}")
+
+        return matches[0]
+
+    def _refresh_metadata(self) -> None:
+        """Refresh metadata for the current species."""
+
+        source = [self._metadata_source(species) for species in self.species]
+
+        self.MR_use = self.MR.loc[source].set_axis(self.species)
+        self.cat_num_use = self.cat_num.loc[source].set_axis(self.species)
+        self.ox_num_use = self.ox_num.loc[source].set_axis(self.species)
+        self.an_num_use = self.an_num.loc[source].set_axis(self.species)
+        self.cat_str_use = self.cat_str.loc[source].set_axis(self.species)
+        self.cat_chrg_use = self.cat_chrg.loc[source].set_axis(self.species)
+        self.MR_El_use = self.MR_El.loc[source].set_axis(self.species)
+
+        elemental = ~pd.Index(self.species).isin(self.species_info.columns)
+
+        self.MR_use.loc[elemental] = self.MR_El_use.loc[elemental]
+        self.cat_num_use.loc[elemental] = 1.0
+        self.ox_num_use.loc[elemental] = 0.0
+        self.an_num_use.loc[elemental] = 0.0

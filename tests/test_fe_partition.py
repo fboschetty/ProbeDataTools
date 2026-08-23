@@ -115,7 +115,7 @@ def test_droop_norm_false_preserves_oxide_scale():
     probe_data = make_probe("GARNET")
     result = calc_Fe2O3_Droop(probe_data, afu=12, cfu=8)
 
-    for oxide in probe_data.oxides:
+    for oxide in probe_data.species:
         if oxide != "FeO":
             assert result.data.loc[0, oxide] == pytest.approx(probe_data.data.loc[0, oxide])
 
@@ -144,7 +144,7 @@ def test_partition_Fe(Fe3ideal, FeO, Fe3_fraction):
 
     assert result.data.loc[0, "FeO"] == pytest.approx(FeO)
     assert result.data.loc[0, "Fe2O3"] == pytest.approx(100 * Fe3_fraction * factor)
-    assert "Fe2O3" in result.oxides
+    assert "Fe2O3" in result.species
 
 
 @pytest.mark.parametrize(
@@ -170,7 +170,7 @@ def test_calc_Fe2O3_charge_balance_returns_probe_data():
     result = calc_Fe2O3_charge_balance(make_fe_probe(), afu=1.0)
     assert isinstance(result, ProbeData)
     assert {"FeO", "Fe2O3"} <= set(result.data.columns)
-    assert "Fe2O3" in result.oxides
+    assert "Fe2O3" in result.species
 
 
 def test_stormer_pure_FeO():
@@ -199,4 +199,4 @@ def test_stormer_returns_probe_data():
     result = calc_Fe2O3_Stormer(make_fe_probe())
     assert isinstance(result, ProbeData)
     assert "Fe2O3" in result.data.columns
-    assert "Fe2O3" in result.oxides
+    assert "Fe2O3" in result.species

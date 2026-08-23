@@ -2,32 +2,71 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
+
 import numpy as np
 import pandas as pd
 
 
-def groupby_str(data: pd.DataFrame, cols: list[str], num: str) -> pd.DataFrame:
-    """Group a dataframe while preserving constant string columns.
+def aggregate_repeats(
+    data: pd.DataFrame,
+    group_by: Sequence[str],
+    numeric_agg: str | Callable = "mean",
+) -> pd.DataFrame:
+    """Aggregate repeated probe analyses while retaining constant metadata.
 
-    Numeric columns are aggregated using ``num``. Object columns are
-    retained when a group contains a single unique value; otherwise
-    they are set to NaN.
+    Numeric columns are aggregated with ``numeric_agg``. Non-numeric metadata
+    columns are retained only when a group contains one unique non-null value;
+    otherwise they are returned as ``pd.NA``.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        DataFrame containing repeated analyses.
+
+    group_by : Sequence[str]
+        Columns defining which analyses belong to the same repeat group.
+
+    numeric_agg : str or Callable, default="mean"
+        Aggregation used for numeric columns, e.g. ``"mean"``, ``"median"``,
+        or a callable.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per repeat group, with aggregated numerical analyses and
+        constant metadata retained.
     """
 
-    aggregations = {}
+    if not group_by:
+        raise ValueError("`group_by` must contain at least one column")
 
-    for column in data.select_dtypes(include="number"):
-        if column not in cols:
-            aggregations[column] = (column, num)
+    missing = [col for col in group_by if col not in data.columns]
+    if missing:
+        raise KeyError(f"Unknown grouping columns: {missing}")
 
-    for column in data.select_dtypes(include="object"):
-        if column not in cols:
-            aggregations[column] = (
-                column,
-                lambda s: s.iloc[0] if s.nunique(dropna=False) == 1 else np.nan,
-            )
+    group_by = list(group_by)
+    value_cols = [col for col in data.columns if col not in group_by]
 
-    return data.groupby(cols).agg(**aggregations)
+    def keep_constant(series: pd.Series):
+        values = series.dropna()
+        return values.iloc[0] if not values.empty and values.nunique() == 1 else pd.NA
+
+    aggregations: dict[str, str | Callable] = {}
+
+    numeric_cols = data[value_cols].select_dtypes(include="number").columns
+    metadata_cols = data[value_cols].select_dtypes(
+        include=["object", "string", "category"]
+    ).columns
+
+    for col in numeric_cols:
+        aggregations[col] = numeric_agg
+    for col in metadata_cols:
+        aggregations[col] = keep_constant
+
+    return data.groupby(
+        group_by, sort=False, dropna=False
+    ).agg(aggregations).reset_index()
 
 
 def convert_headers_thermobar(

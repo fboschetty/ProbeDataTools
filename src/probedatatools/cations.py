@@ -14,7 +14,7 @@ from .probe import ProbeData
 def calc_mol_prop(probe_data: ProbeData) -> pd.DataFrame:
     """Calculate molar proportions from wt% oxides."""
 
-    return probe_data.data[list(probe_data.oxides)].div(probe_data.MR_use, axis=1)
+    return probe_data.data[list(probe_data.species)].div(probe_data.MR_use, axis=1)
 
 
 def calc_mol_frac(probe_data: ProbeData) -> pd.DataFrame:

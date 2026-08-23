@@ -3,55 +3,76 @@ import pandas as pd
 import pytest
 
 from probedatatools.utils import (
+    aggregate_repeats,
     convert_headers_thermobar,
     gen_kd_line,
-    groupby_str,
     revert_headers_thermobar,
 )
 
 
-@pytest.mark.parametrize("num", ["mean", "median"])
-def test_groupby_str_numeric_aggregation(num):
+@pytest.mark.parametrize("numeric_agg", ["mean", "median"])
+def test_aggregate_repeats_numeric_aggregation(numeric_agg):
     data = pd.DataFrame({"Sample": ["A", "A", "A"], "Value": [1.0, 3.0, 5.0]})
-    result = groupby_str(data, ["Sample"], num)
-    assert result.loc["A", "Value"] == pytest.approx(3.0)
+    result = aggregate_repeats(data, ["Sample"], numeric_agg)
+    assert result.loc[0, "Value"] == pytest.approx(3.0)
 
 
-def test_groupby_str_preserves_constant_strings():
+def test_aggregate_repeats_preserves_constant_metadata():
     data = pd.DataFrame({
         "Sample": ["A", "A", "B"],
         "Value": [1.0, 3.0, 10.0],
         "Comment": ["Good", "Good", "Other"],
     })
 
-    result = groupby_str(data, ["Sample"], "mean")
+    result = aggregate_repeats(data, ["Sample"])
 
-    assert result.loc["A", "Comment"] == "Good"
-    assert result.loc["B", "Comment"] == "Other"
+    assert result.loc[result["Sample"] == "A", "Comment"].iloc[0] == "Good"
+    assert result.loc[result["Sample"] == "B", "Comment"].iloc[0] == "Other"
 
 
-def test_groupby_str_replaces_conflicting_strings_with_nan():
+def test_aggregate_repeats_marks_conflicting_metadata():
     data = pd.DataFrame({
         "Sample": ["A", "A"],
         "Value": [1.0, 3.0],
         "Comment": ["Good", "Bad"],
     })
 
-    result = groupby_str(data, ["Sample"], "mean")
-    assert pd.isna(result.loc["A", "Comment"])
+    result = aggregate_repeats(data, ["Sample"])
+
+    assert pd.isna(result.loc[0, "Comment"])
 
 
-def test_groupby_str_multiple_columns():
+def test_aggregate_repeats_multiple_grouping_columns():
     data = pd.DataFrame({
         "Sample": ["A", "A", "A", "B"],
         "Type": ["x", "x", "y", "x"],
         "Value": [1.0, 3.0, 5.0, 7.0],
     })
 
-    result = groupby_str(data, ["Sample", "Type"], "mean")
+    result = aggregate_repeats(data, ["Sample", "Type"])
 
-    assert result.loc[("A", "x"), "Value"] == pytest.approx(2.0)
-    assert result.loc[("A", "y"), "Value"] == pytest.approx(5.0)
+    ax = result.set_index(["Sample", "Type"])
+    assert ax.loc[("A", "x"), "Value"] == pytest.approx(2.0)
+    assert ax.loc[("A", "y"), "Value"] == pytest.approx(5.0)
+
+
+def test_aggregate_repeats_ignores_missing_metadata():
+    data = pd.DataFrame({
+        "Sample": ["A", "A"],
+        "Position": ["core", pd.NA],
+        "Value": [1.0, 3.0],
+    })
+
+    result = aggregate_repeats(data, ["Sample"])
+
+    assert result.loc[0, "Position"] == "core"
+
+
+def test_aggregate_repeats_validates_grouping_columns():
+    data = pd.DataFrame({"Sample": ["A"], "Value": [1.0]})
+
+    with pytest.raises(KeyError):
+        aggregate_repeats(data, ["Missing"])
 
 
 def test_convert_headers_thermobar():

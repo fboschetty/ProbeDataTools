@@ -54,7 +54,7 @@ def partition_Fe(probe_data: ProbeData, cations: pd.DataFrame, Fe3ideal: pd.Seri
 
     new_data["Fe2O3"] = probe_data.data["FeO"] * (1 - Fe2FeT) * Fe2O3_factor
 
-    new_oxides = list(probe_data.oxides)
+    new_oxides = list(probe_data.species)
     if "Fe2O3" not in new_oxides:
         new_oxides.append("Fe2O3")
 
