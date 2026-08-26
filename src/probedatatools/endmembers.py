@@ -5,7 +5,7 @@ e.g. olivine, feldspar, clinopyroxene and spinel.
 import numpy as np
 import pandas as pd
 
-from .cations import calc_cations
+from .cations import calc_apfu
 from .fe_partition import calc_Fe2O3_Droop
 from .probe import ProbeData
 
@@ -142,7 +142,7 @@ def calc_cpx_EM_Neave(probe_data: ProbeData) -> pd.DataFrame:
 
     # Calc Cpx components using Droop Fe3+ calc
     droop_data = calc_Fe2O3_Droop(probe_data, cfu=4.0, afu=6.0, norm=True)
-    components = calc_cations(droop_data, afu=6.0)
+    components = calc_apfu(droop_data, afu=6.0)
 
     components["Al_IV"] = np.clip(2 - components["Si"], 0., None)
     components["Al_VI"] = np.clip(components["Al"] - components["Al_IV"], 0., None)

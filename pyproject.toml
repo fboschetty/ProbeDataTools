@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Tools for processing electron-microprobe analyses and mineral compositions"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {file = "LICENSE"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "Felix Boschetty"},
 ]
@@ -16,6 +17,11 @@ dependencies = [
     "numpy>=1.23",
     "pandas>=1.5",
 ]
+
+[project.urls]
+Homepage = "https://github.com/fboschetty/ProbeDataTools"
+Repository = "https://github.com/fboschetty/ProbeDataTools"
+Issues = "https://github.com/fboschetty/ProbeDataTools/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

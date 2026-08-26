@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from probedatatools import ProbeData
-from probedatatools.cations import calc_cations
+from probedatatools.cations import calc_apfu
 from probedatatools.endmembers import (
     _DIETRICH_COEFFICIENTS,
     _DIETRICH_COMPONENTS,
@@ -336,7 +336,7 @@ def test_neave_cations_against_supplement(neave_data):
     results = []
 
     for _, row in neave_data.iterrows():
-        cations = calc_cations(make_neave_probe(row), afu=6.0)
+        cations = calc_apfu(make_neave_probe(row), afu=6.0)
         results.append(cations.loc[0, NEAVE_CATIONS])
 
     result = pd.DataFrame(results, columns=NEAVE_CATIONS)
@@ -351,7 +351,7 @@ def test_neave_droop_against_supplement(neave_data):
 
     for _, row in neave_data.iterrows():
         corrected = calc_Fe2O3_Droop(make_neave_probe(row), cfu=4.0, afu=6.0, norm=True)
-        cations = calc_cations(corrected, afu=6.0)
+        cations = calc_apfu(corrected, afu=6.0)
         results.append(cations.loc[0, NEAVE_DROOP])
 
     result = pd.DataFrame(results, columns=NEAVE_DROOP)
@@ -364,7 +364,7 @@ def test_neave_droop_against_supplement(neave_data):
 def test_neave_droop_cations_sum_to_four(neave_data):
     for _, row in neave_data.iterrows():
         corrected = calc_Fe2O3_Droop(make_neave_probe(row), cfu=4.0, afu=6.0, norm=True)
-        cations = calc_cations(corrected, afu=6.0)
+        cations = calc_apfu(corrected, afu=6.0)
         assert cations.loc[0, NEAVE_DROOP].sum() == pytest.approx(4.0, abs=0.005)
 
 

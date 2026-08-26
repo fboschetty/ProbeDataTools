@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from probedatatools import ProbeData
-from probedatatools.cations import calc_cations
+from probedatatools.cations import calc_apfu
 from probedatatools.fe_partition import (
     _calc_Fe3_charge_balance,
     calc_Fe2O3_charge_balance,
@@ -74,8 +74,8 @@ def assert_fe_result(result: ProbeData, expected: list[float]) -> None:
         ("SAPPHIRINE", ["Si", "Ti", "Al", "Cr", "Fe2", "Mn", "Mg", "Ca", "Zn"], [1.553, 0.003, 8.633, 0, 0.879, 0.004, 3.052, 0, 0.004]),
     ],
 )
-def test_calc_cations_against_droop_table3(mineral, elements, values):
-    result = calc_cations(make_probe(mineral), afu=DROOP[mineral]["afu"])
+def test_calc_apfu_against_droop_table3(mineral, elements, values):
+    result = calc_apfu(make_probe(mineral), afu=DROOP[mineral]["afu"])
     assert np.allclose(result.loc[0, elements], values, atol=0.002)
 
 
@@ -121,8 +121,21 @@ def test_droop_norm_false_preserves_oxide_scale():
 
 
 def test_droop_norm_true_normalizes_cations():
-    result = calc_Fe2O3_Droop(make_probe("GARNET"), afu=12, cfu=8, norm=True)
-    assert calc_cations(result, afu=12).sum(axis=1).iloc[0] == pytest.approx(8.0)
+    result = calc_Fe2O3_Droop(
+        make_probe("GARNET"),
+        afu=12,
+        cfu=8,
+        norm=True,
+    )
+
+    apfu = calc_apfu(result, afu=12)
+
+    cation_columns = [
+        col for col in apfu.columns
+        if col not in {"F", "Cl"}
+    ]
+
+    assert apfu[cation_columns].sum(axis=1).iloc[0] == pytest.approx(8.0)
 
 
 def test_droop_norm_changes_fe_partition():
@@ -200,3 +213,99 @@ def test_stormer_returns_probe_data():
     assert isinstance(result, ProbeData)
     assert "Fe2O3" in result.data.columns
     assert "Fe2O3" in result.species
+
+
+def make_fe_halogen_probe() -> ProbeData:
+    return ProbeData(
+        pd.DataFrame({
+            "FeO": [100.0],
+            "F": [2.0],
+            "Cl": [3.0],
+        }),
+        ["FeO", "F", "Cl"],
+    )
+
+
+def test_droop_F_and_Cl_do_not_change_Fe_partition():
+    fe_only = make_fe_probe()
+
+    halogen = make_fe_halogen_probe()
+
+    # Keep total Fe concentration the same.
+    halogen.data["FeO"] = fe_only.data["FeO"]
+
+    result_fe = calc_Fe2O3_Droop(
+        fe_only,
+        afu=1.0,
+        cfu=1.0,
+    )
+    result_halogen = calc_Fe2O3_Droop(
+        halogen,
+        afu=1.0,
+        cfu=1.0,
+    )
+
+    assert result_halogen.data.loc[0, "FeO"] == pytest.approx(
+        result_fe.data.loc[0, "FeO"]
+    )
+    assert result_halogen.data.loc[0, "Fe2O3"] == pytest.approx(
+        result_fe.data.loc[0, "Fe2O3"]
+    )
+
+
+def test_charge_balance_ignores_nonO_anions():
+    fe_only = make_fe_probe()
+    halogen = make_fe_halogen_probe()
+
+    result_fe = calc_Fe2O3_charge_balance(
+        fe_only,
+        afu=1.0,
+    )
+    result_halogen = calc_Fe2O3_charge_balance(
+        halogen,
+        afu=1.0,
+    )
+
+    assert result_halogen.data.loc[0, "FeO"] == pytest.approx(
+        result_fe.data.loc[0, "FeO"]
+    )
+    assert result_halogen.data.loc[0, "Fe2O3"] == pytest.approx(
+        result_fe.data.loc[0, "Fe2O3"]
+    )
+
+
+def test_stormer_ignores_nonO_anions():
+    fe_only = make_fe_probe()
+    halogen = make_fe_halogen_probe()
+
+    result_fe = calc_Fe2O3_Stormer(fe_only)
+    result_halogen = calc_Fe2O3_Stormer(halogen)
+
+    assert result_halogen.data.loc[0, "FeO"] == pytest.approx(
+        result_fe.data.loc[0, "FeO"]
+    )
+    assert result_halogen.data.loc[0, "Fe2O3"] == pytest.approx(
+        result_fe.data.loc[0, "Fe2O3"]
+    )
+
+
+def test_partition_Fe_preserves_total_iron():
+    probe_data = make_fe_probe()
+
+    result = partition_Fe(
+        probe_data,
+        pd.DataFrame({"Fe2": [1.0]}),
+        pd.Series([0.4]),
+    )
+
+    original = (
+        probe_data.data.loc[0, "FeO"]
+        / probe_data.MR["FeO"]
+    )
+
+    corrected = (
+        result.data.loc[0, "FeO"] / result.MR["FeO"]
+        + 2 * result.data.loc[0, "Fe2O3"] / result.MR["Fe2O3"]
+    )
+
+    assert corrected == pytest.approx(original)

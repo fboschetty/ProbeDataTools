@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use ProbeDataTools in your research, please cite the software using the citation below."
+
+title: "ProbeDataTools"
+type: software
+version: 0.1.0
+
+authors:
+  - family-names: "Boschetty"
+    given-names: "Felix"
+
+repository-code: "https://github.com/fboschetty/ProbeDataTools"
+
+license: MIT

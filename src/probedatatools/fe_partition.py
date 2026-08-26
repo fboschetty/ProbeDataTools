@@ -14,8 +14,29 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .cations import calc_cations
+from .cations import _cation_columns, calc_apfu
 from .probe import ProbeData
+
+
+def _calc_cat_tot(probe_data: ProbeData, apfu: pd.DataFrame) -> pd.Series:
+    """Calculate total cations from an APFU dataframe.
+
+    Parameters
+    ----------
+    probe_data : ProbeData
+        Probe-data object defining cation stoichiometries and labels.
+    apfu : pandas.DataFrame
+        APFU dataframe containing cations and any analysed non-O anions.
+
+    Returns
+    -------
+    pandas.Series
+        Total cations for each analysis.
+    """
+
+    columns = _cation_columns(probe_data)
+
+    return apfu[columns].sum(axis=1, skipna=True)
 
 
 def partition_Fe(probe_data: ProbeData, cations: pd.DataFrame, Fe3ideal: pd.Series) -> ProbeData:
@@ -25,12 +46,11 @@ def partition_Fe(probe_data: ProbeData, cations: pd.DataFrame, Fe3ideal: pd.Seri
     ----------
     probe_data:
         Probe data with total Fe reported as FeO.
-
-    cations:
-        Cations per formula unit, with total Fe represented by ``Fe2``.
-
+    cations : pandas.DataFrame
+        Cation APFU dataframe in which the ``Fe2`` column represents
+        total analysed Fe temporarily treated as Fe2+.
     Fe3ideal:
-        Ideal Fe3+ content per formula unit.
+        Calculated Fe3+ content in atoms per formula unit.
 
     Returns
     -------
@@ -62,35 +82,38 @@ def partition_Fe(probe_data: ProbeData, cations: pd.DataFrame, Fe3ideal: pd.Seri
 
 
 def calc_Fe2O3_Droop(probe_data: ProbeData, cfu: float, afu: float, norm: bool = False) -> ProbeData:
-    """Calculate Fe2/3 ratio stoichiometrically using the method of Droop (1987).
+    """Calculate Fe2+/Fe3+ stoichiometrically using Droop (1987).
 
     Parameters
     ----------
     probe_data : ProbeData
         Probe data with total Fe reported as FeO.
-
     cfu : float
-        Ideal number of cations per formula unit (T in Droop, 1987).
-
+        Ideal number of cations per formula unit.
     afu : float
-        Number of anions per formula unit (X in Droop, 1987).
-
+        Target number of oxygens per formula unit.
     norm : bool, default=False
-        If True, normalize the oxide analysis so that the calculated
-        cation total equals ``cfu``. If False, retain the original
-        analysed oxide concentrations.
+        If True, normalise the APFU cations to ``cfu`` before partitioning
+        Fe. If False, retain the original analysed concentrations when
+        partitioning Fe.
+
+    Returns
+    -------
+    ProbeData
+        New probe data with total Fe partitioned between FeO and Fe2O3.
     """
 
-    cations = calc_cations(probe_data, afu=afu)
-    S = cations.sum(axis=1, skipna=True)
+    apfu = calc_apfu(probe_data, afu=afu)
+    S = _calc_cat_tot(probe_data, apfu)
 
     factor = cfu / S
-    Fe3ideal = 2 * afu * (1 - (cfu / S))
+    Fe3ideal = 2 * afu * (1 - factor)
 
     if norm:
-        cations = cations.mul(factor, axis=0)
+        cation_columns = _cation_columns(probe_data)
+        apfu[cation_columns] = apfu[cation_columns].mul(factor, axis=0)
 
-    return partition_Fe(probe_data, cations, Fe3ideal)
+    return partition_Fe(probe_data, apfu, Fe3ideal)
 
 
 def calc_Fe2O3_Droop_Eq4(probe_data: ProbeData, norm: bool = False) -> ProbeData:
@@ -130,18 +153,19 @@ def calc_Fe2O3_Droop_Eq5(probe_data: ProbeData, norm: bool = False) -> ProbeData
         analysed oxide concentrations.
     """
 
-    cations = calc_cations(probe_data, afu=23)
+    apfu = calc_apfu(probe_data, afu=23)
 
     rel_cat = ["Si", "Ti", "Al", "Cr", "Fe2", "Mn", "Mg", "Ca"]
 
-    S = cations[rel_cat].sum(axis=1, skipna=True)
+    S = apfu[rel_cat].sum(axis=1, skipna=True)
     factor = 15.0 / S
     Fe3ideal = 46.0 * (1 - factor)
 
     if norm:
-        cations = cations.mul(factor, axis=0)
+        cation_columns = _cation_columns(probe_data)
+        apfu[cation_columns] = apfu[cation_columns].mul(factor, axis=0)
 
-    return partition_Fe(probe_data, cations, Fe3ideal)
+    return partition_Fe(probe_data, apfu, Fe3ideal)
 
 
 def calc_Fe2O3_Droop_Eq6(probe_data: ProbeData, norm: bool = False) -> ProbeData:
@@ -155,22 +179,37 @@ def calc_Fe2O3_Droop_Eq6(probe_data: ProbeData, norm: bool = False) -> ProbeData
         Probe data with total Fe reported as FeO.
     """
 
-    cations = calc_cations(probe_data, afu=23)
+    apfu = calc_apfu(probe_data, afu=23)
 
     rel_cat = ["Si", "Ti", "Al", "Cr", "Fe2", "Mn", "Mg"]
 
-    S = cations[rel_cat].sum(axis=1, skipna=True)
+    S = apfu[rel_cat].sum(axis=1, skipna=True)
     factor = 13.0 / S
     Fe3ideal = 46.0 * (1.0 - factor)
 
     if norm:
-        cations = cations.mul(factor, axis=0)
+        cation_columns = _cation_columns(probe_data)
+        apfu[cation_columns] = apfu[cation_columns].mul(factor, axis=0)
 
-    return partition_Fe(probe_data, cations, Fe3ideal)
+    return partition_Fe(probe_data, apfu, Fe3ideal)
 
 
 def _normalize_cations(cations: pd.DataFrame, cfu: float) -> pd.DataFrame:
-    """Normalize cations to a specified total cation number."""
+    """Normalise cation proportions to a specified cation total.
+
+    Parameters
+    ----------
+    cations : pandas.DataFrame
+        Dataframe containing cations only.
+    cfu : float
+        Target number of cations per formula unit.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Cation proportions normalised to ``cfu``.
+    """
+
     return cations.mul(cfu / cations.sum(axis=1, skipna=True), axis=0)
 
 
@@ -185,13 +224,13 @@ def calc_Fe2O3_Stormer(probe_data: ProbeData) -> ProbeData:
     [1] https://pubs.geoscienceworld.org/msa/ammin/article/68/5-6/586/104818/
     """
 
-    cations = calc_cations(probe_data, afu=4.0, change_head=False)
+    apfu = calc_apfu(probe_data, afu=4.0, change_head=False)
+    cation_species = probe_data.cat_num_use[probe_data.cat_num_use > 0].index
+    cations = apfu[cation_species]
     cations = _normalize_cations(cations, cfu=3.0)
 
     charge = cations.mul(probe_data.cat_chrg_use, axis=1).sum(axis=1, skipna=True)
-
     Fe3ideal = 8.0 - charge
-
     cations = cations.rename(columns={"FeO": "Fe2"})
 
     return partition_Fe(probe_data, cations, Fe3ideal)
@@ -231,7 +270,10 @@ def calc_Fe2O3_charge_balance(probe_data: ProbeData, afu: float) -> ProbeData:
         Probe data with Fe partitioned between FeO and Fe2O3.
     """
 
-    cations = calc_cations(probe_data, afu, change_head=False)
+    apfu = calc_apfu(probe_data, afu, change_head=False)
+
+    cation_species = probe_data.cat_num_use[probe_data.cat_num_use > 0].index
+    cations = apfu[cation_species]
 
     Fe3ideal = _calc_Fe3_charge_balance(cations, probe_data.cat_chrg_use, afu)
 
